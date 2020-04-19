@@ -15,7 +15,7 @@ type Handler struct {
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	urlSegments := strings.Split(r.URL.Path, "/")
 
-	if len(urlSegments) > 2 && urlSegments[0] == "api" {
+	if len(urlSegments) > 3 && urlSegments[1] == "api" {
 		resourceName := urlSegments[3]
 
 		switch resourceName {

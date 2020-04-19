@@ -17,8 +17,7 @@ func NewStaticHandler() *StaticHandler {
 		Router: mux.NewRouter(),
 	}
 
-	fs := http.FileServer(http.Dir("static"))
-	h.Handle("/", http.StripPrefix("/", fs))
+	h.Router.PathPrefix("/").Handler(http.FileServer(http.Dir("./static/")))
 
 	return h
 }

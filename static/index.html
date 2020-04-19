@@ -3,11 +3,26 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="./css/style.css">
   <title>Pyx Demo</title>
 </head>
 
 <body>
-  <div>pyx demo</div>
+  <div id="app">
+    <h2>pyx demo</h2>
+    <div id="start-controls">
+      <input id="stream-key-input" type="text" placeholder="Stream Key">
+      <button id="start-btn">Start Streaming</button>
+    </div>
+
+    <div id="end-controls" class="hide">
+      <button id="stop-btn">Stop Streaming</button>
+    </div>
+
+    <br>
+
+    <video playsinline autoplay muted></video>
+  </div>
   <script src="./vendor/axios.min.js"></script>
   <script src="./js/main.js"></script>
 </body>
