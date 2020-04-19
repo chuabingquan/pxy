@@ -11,6 +11,11 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+var (
+	// ErrSessionDoesNotExist ...
+	ErrSessionDoesNotExist = errors.New("Livestream session does not exist")
+)
+
 type livestream struct {
 	Streamer   *livestreamConnection
 	RTMPClient pxy.BroadcastService
@@ -104,7 +109,7 @@ func (lp *LivestreamPool) RemoveStreamer(sessionID string) error {
 		existingLivestream.Streamer.Websocket.Close()
 		delete(lp.connections, sessionID)
 	} else {
-		return errors.New("Session to close livestream for does not exist")
+		return ErrSessionDoesNotExist
 	}
 
 	return nil
