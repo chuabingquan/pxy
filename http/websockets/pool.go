@@ -3,24 +3,32 @@ package websockets
 import (
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
+	"pxy"
+	"pxy/rtmp"
 	"sync"
 
 	"github.com/gorilla/websocket"
 )
 
+type livestream struct {
+	Streamer   *livestreamConnection
+	RTMPClient pxy.BroadcastService
+}
+
 // LivestreamPool ...
 type LivestreamPool struct {
-	connections map[string]*livestreamConnection
+	publishURL  string
+	connections map[string]*livestream
 	upgrader    websocket.Upgrader
 	lock        sync.RWMutex
 }
 
 // NewLivestreamPool ...
-func NewLivestreamPool(readBufferSize, writeBufferSize int, subprotocols []string) *LivestreamPool {
+func NewLivestreamPool(readBufferSize, writeBufferSize int, subprotocols []string, publishURL string) *LivestreamPool {
 	return &LivestreamPool{
-		connections: make(map[string]*livestreamConnection),
+		publishURL:  publishURL,
+		connections: make(map[string]*livestream),
 		upgrader: websocket.Upgrader{
 			ReadBufferSize:  readBufferSize,
 			WriteBufferSize: writeBufferSize,
@@ -41,13 +49,25 @@ func (lp *LivestreamPool) RegisterStreamer(sessionID, userID, streamKey string, 
 		return fmt.Errorf("Failed to upgrade HTTP connection to a websocket: %w", err)
 	}
 
+	rtmp := rtmp.NewRTMPClient(lp.publishURL, streamKey)
+	err = rtmp.StartBroadcast()
+	if err != nil {
+		return fmt.Errorf("Failed to start RTMP broadcast: %w", err)
+	}
+
 	newStreamer := newLivestreamConnection(sessionID, userID, streamKey, conn)
 
+	livestream := &livestream{
+		Streamer:   newStreamer,
+		RTMPClient: rtmp,
+	}
+
 	if _, exists := lp.connections[sessionID]; !exists {
-		lp.connections[sessionID] = newStreamer
+		lp.connections[sessionID] = livestream
 	} else {
-		lp.connections[sessionID].Websocket.Close()
-		lp.connections[sessionID] = newStreamer
+		lp.connections[sessionID].RTMPClient.StopBroadcast()
+		lp.connections[sessionID].Streamer.Websocket.Close()
+		lp.connections[sessionID] = livestream
 	}
 
 	go func() {
@@ -57,33 +77,45 @@ func (lp *LivestreamPool) RegisterStreamer(sessionID, userID, streamKey string, 
 				lp.lock.Lock()
 				defer lp.lock.Unlock()
 
+				rtmp.StopBroadcast()
 				newStreamer.Websocket.Close()
-				if existingStreamer, exists := lp.connections[sessionID]; exists {
-					if existingStreamer.ID == newStreamer.ID {
+				if existingLivestream, exists := lp.connections[sessionID]; exists {
+					if existingLivestream.Streamer.ID == newStreamer.ID {
 						delete(lp.connections, sessionID)
 					}
 				}
 				break
 			}
 
-			log.Println(payload)
+			rtmp.PipeToBroadcast(&payload)
 		}
 	}()
 
 	return nil
 }
 
-// CloseUpdates ...
-func (lp *LivestreamPool) CloseUpdates(sessionID string) error {
+// RemoveStreamer ...
+func (lp *LivestreamPool) RemoveStreamer(sessionID string) error {
 	lp.lock.Lock()
 	defer lp.lock.Unlock()
 
-	if existingStreamer, exists := lp.connections[sessionID]; exists {
-		existingStreamer.Websocket.Close()
+	if existingLivestream, exists := lp.connections[sessionID]; exists {
+		existingLivestream.RTMPClient.StopBroadcast()
+		existingLivestream.Streamer.Websocket.Close()
 		delete(lp.connections, sessionID)
 	} else {
 		return errors.New("Session to close livestream for does not exist")
 	}
 
 	return nil
+}
+
+// StreamerIsRegisteredForSession ...
+func (lp *LivestreamPool) StreamerIsRegisteredForSession(sessionID string) bool {
+	lp.lock.Lock()
+	defer lp.lock.Unlock()
+
+	_, exists := lp.connections[sessionID]
+
+	return exists
 }
