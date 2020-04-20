@@ -29,3 +29,7 @@ const (
 go run cmd/pxy/main.go
 ```
 5. Access `http://localhost:8080` in your browser and supply your stream name/stream key. `pxy` will append it behind the specified RTMP endpoint address that's mentioned Step 3 `(e.g. rtmp://global-live.mux.com:5222/app/{YOUR_STREAM_NAME/KEY})`
+
+## References
+- [The state of going live from a browser](https://mux.com/blog/the-state-of-going-live-from-a-browser/)
+- [Streaming to Facebook Live from a canvas](https://github.com/fbsamples/Canvas-Streaming-Example/blob/master/README.md)
